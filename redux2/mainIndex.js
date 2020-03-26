@@ -1,4 +1,4 @@
-const { createStore } = require("redux");
+const { createStore, compose, applyMiddleware } = require("redux");
 const reducer = require("./reducers/index");
 const { logIn, logOut } = require("./actions/user");
 const { addPost } = require("./actions/post");
@@ -34,7 +34,58 @@ const nextState = {
 이런식으로 데이터를 불변성을 유지하면서 바꿔나간다
 */
 
-const store = createStore(reducer, initialState);
+const firstMiddleware = store => next => action => {
+  // 3단 고차함수 // next: dispatch랑 같다 // 이런 방식을 커링 방식이라 한다.
+  console.log(
+    "로깅 미들웨어",
+    action
+  ); /* 그냥 dispatch(action)만 쓰여져 있으면, 기본동작을 하는 것이다
+  3) 그런데 console.log를 넣어줬으니, 기본동작에 뭔가를 실행하는 것이다. 
+  */
+  // dispatch 하기전에 추가기능은 여기에 넣기
+  next(action);
+  // dispatch 한 후에 추가기능은 여기에 넣기
+  console.log("액션 끝!!!");
+};
+
+const thunkMiddleware = store => next => action => {
+  // 객체를 (store, dispatch, action) 이렇게 3개 받아도 되지만, 이 같은 모습은 함수형 프로그램의 모습이다.
+  if (typeof action === "function") {
+    /* action은 본래 객체이지만, redux랑 하나의 약속을 하는 것이다.. // 비동기
+    함수인경우~, 즉 비동기인 경우는 action을 함수로 넣어주겠다. 라고 말하는 것이다.
+    객체로 처리할 수도 있지만, thunk는 함수로 처리한다. 
+    */
+    return action(store.dispatch, store.getState);
+  }
+  return next(action); // 여기서 return은 있어도 되고 없어도 된다.  // 동기
+};
+
+/* function firstMiddleware(store) {
+  여기에 뭔가를 넣을 수있다.
+  return function(next) {
+    여기에 뭔가를 넣을 수있다.
+    return function(action) {
+
+    }
+  } 이거랑 같은 함수 이다. // 사이사이에 뭔가를 넣을 수 있기에 3단함수로 써놓음. 들어갈것이 없으면 위처럼
+  한방에 쓸 수도 있다. 
+} */
+
+const enhancer = compose(
+  // compose는 굳이 안써도 되는데 이런게 있다는 것 정도는 알아 놓자
+  /* compose : 합성하는 함수 */
+  applyMiddleware(firstMiddleware, thunkMiddleware)
+  /* devtool,<--chrome에서 쉽게 볼수 있게 해주는 도구를 붙이기 위해서는 compose를 쓴다  
+  4) 위의 3)에서 console.log를 넣어줬으니, 즉 부가 기능을 넣었으니 firstMiddleware를 쓴다고 적어줘야 한다. 
+  */
+);
+
+const store = createStore(reducer, initialState, enhancer);
+// enhancer 덧 붙이다. 증가시키다. 즉 기존 redux가 못했던 일을 하기에 enhancer라고 한다.
+
+store.subscribe(() => {
+  console.log("subscribe 작동");
+});
 
 /* store.subsribe(() => {
   // 화면 바꿔준다 but react-redux안에 들어있다. 그래서 자동으로 화면을 바꿔준다
